@@ -1,0 +1,50 @@
+name: Claude Code (reusable and bunpilled)
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        type: string
+        default: claude-opus-4-7
+      timeout_minutes:
+        type: string
+        default: '40'
+      allowed_tools:
+        type: string
+        default: "Bash(bun run typecheck),Bash(bun run lint),Bash(bun run test:*),Bash(bun run build),Bash(bunx *)"
+      bun_version:
+        type: string
+        default: latest
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ inputs.bun_version }}
+      - run: bun install --frozen-lockfile
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: ${{ inputs.model }}
+          timeout_minutes: ${{ inputs.timeout_minutes }}
+          allowed_tools: ${{ inputs.allowed_tools }}
